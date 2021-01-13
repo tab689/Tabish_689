@@ -1,0 +1,463 @@
+-- 1.Pre-requisite----
+
+ADD JAR /opt/cloudera/parcels/CDH/lib/hive/lib/hive-hcatalog-core-1.1.0-cdh5.11.2.jar;
+
+SET hive.exec.max.dynamic.partitions=100000;
+SET hive.exec.max.dynamic.partitions.pernode=100000;
+
+-- 2.creating new database 
+
+CREATE DATABASE tabish_hive
+
+-- using the database
+
+USE tabish_hive
+
+--- Loading the data.
+
+--- Dropping the table if already exists
+drop table new_taxi;
+
+--- Creating the table new_taxi.
+
+CREATE EXTERNAL TABLE IF NOT EXISTS new_taxi(VendorID int,
+tpep_pickup_datetime timestamp,
+tpep_dropoff_datetime timestamp,
+passenger_count int,
+trip_distance double,
+RatecodeID int,
+store_and_fwd_flag string,
+PULocationID int,
+DOLocationID int,
+payment_type int,
+fare_amount double,
+extra double,
+mta_tax double,
+tip_amount double,
+tolls_amount double,
+improvement_surcharge double,
+total_amount double) row format delimited fields terminated by ','
+Location '/common_folder/nyc_taxi_data/'
+TBLPROPERTIES("skip.header.line.count"="1");
+
+-- Checking for total no of rows once the data is uploaded
+
+select * from new_taxi;
+
+--- Total no of rows are 1174569
+
+
+#Basic Data Quality Checks
+---Checking count of records each TPEP provider providede
+
+select count(*) Records , vendorid as TPEP_Provider from new_taxi 
+group by vendorid;
+
+---1 (Creative Mobile Technologies, LLC) -> 527386
+---2 (VeriFone Inc.) -> 647183
+
+---Checking for the pickup record consistency
+
+select count(*) as number_of_record from new_taxi 
+where substr(tpep_pickup_datetime, 1, 7) not in('2017-11','2017-12');
+
+---14 records in the dataset satisfy the above query,this count for the column is incorrcet
+
+---Checking for the pickup record consistency with the respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where substr(tpep_pickup_datetime, 1, 7) not in('2017-11','2017-12')
+group by vendorid;
+
+---14-Vendorid 2
+---0-Vendorid 1
+
+---Checking for the drop record consistency
+
+select count(*) as number_of_record from new_taxi 
+where substr(tpep_dropoff_datetime, 1, 7) not in('2017-11','2017-12');
+
+---117 records in the dataset satisfy the above query,this count for the column is incorrcet
+
+---Checking for the drop record consistency with the respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where substr(tpep_dropoff_datetime, 1, 7) not in('2017-11','2017-12')
+group by vendorid;
+
+---89-for venderid 1
+---29-for vendorid 2
+
+---Chceking the consistency for passenger count
+
+select count(*) as number_of_record from new_taxi 
+where Passenger_count <=0;
+
+---6824 records in the dataset are incorrect for the given column
+
+---Chceking the consistency for passenger count with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Passenger_count <=0
+group by vendorid;
+
+---6813-for venderid 1
+---11-for vendorid 2
+
+---Checking the consistency for Trip_distance
+
+select count(*) as number_of_record from new_taxi 
+where Trip_distance <=0 ;
+
+---7402 records in the dataset are incorrect for the given column
+
+---Chceking the consistency for Trip_distance with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Trip_distance <=0
+group by vendorid;
+
+---4217-for venderid 1
+---3185-for vendorid 2
+
+---Checking the consistency for RateCodeID 
+
+select count(*) as number_of_record from new_taxi 
+where RateCodeID <1 or RateCodeID >6 ;
+
+---9 records are erroneous in the data set.
+
+---Chceking the consistency for RateCodeID with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where RateCodeID <1 or RateCodeID >6 
+group by vendorid;
+
+---1-for venderid 2
+---8-for vendorid 1
+
+---Checking the consistency for Payment_type
+
+select count(*) as number_of_record from new_taxi 
+where Payment_type <1 or Payment_type >6 ;
+
+---0 records are erroneous for this column.
+
+---Checking the consistency for Fare_amount
+
+select count(*) as number_of_record from new_taxi 
+where Fare_amount <=0 ;
+
+---870 records of this column are erroneous in the dataset
+
+---Checking the consistency for Fare_amount with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Fare_amount <=0
+group by vendorid;
+
+---639-for venderid 2
+---231-for vendorid 1
+
+---Checking the consistency for extra
+
+select count(*) as number_of_record from new_taxi 
+where extra not in(0.50,1,0) 
+
+---4856 records are erroneous in the dataset for extra column
+
+---Checking the consistency for extra with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where extra not in(0.50,1,0)
+group by vendorid;
+
+---3033-for venderid 2
+---1823-for vendorid 1
+
+---Checking the consistency for MTA_tax
+
+select count(*) as number_of_record from new_taxi 
+where MTA_tax !=0.50
+
+---5745 records are erroneous in the dataset for MTA_tax column
+
+---Checking the consistency for MTA_tax with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where MTA_tax !=0.50
+group by vendorid;
+
+---3033-for venderid 2
+---2712-for vendorid 1
+
+---Checking the consistency for Improvement_surcharge 
+
+select count(*) as number_of_record from new_taxi 
+where Improvement_surcharge !=0.30
+
+---849 records are erroneous  in the dataset for Improvement_surcharge column
+
+---Checking the consistency for Improvement_surcharge with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Improvement_surcharge !=0.30
+group by vendorid;
+
+---788-for venderid 2
+---61-for vendorid 1
+
+---Checking the consistency for Tip_amount  
+
+select count(*) as number_of_record from new_taxi 
+where Tip_amount <0
+
+---4 records are erroneous  in the dataset for Tip_amount column
+
+---Checking the consistency for Tip_amount with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Tip_amount <0
+group by vendorid;
+
+---4-for venderid 2
+---0-for vendorid 1
+
+---Checking the consistency for Tolls_amount   
+
+select count(*) as number_of_record from new_taxi 
+where Tolls_amount  <0
+
+---3 records are erroneous  in the dataset for Tolls_amount column
+
+---Checking the consistency for Tolls_amount  with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Tolls_amount  <0
+group by vendorid;
+
+---3-for venderid 2
+---0-for vendorid 1
+
+---Checking the consistency for Total_amount    
+
+select count(*) as number_of_record from new_taxi 
+where Total_amount   <0
+
+---558 records are erroneous  in the dataset for Total_amount column
+
+---Checking the consistency for Total_amount   with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where Total_amount  <0
+group by vendorid;
+
+---558-for venderid 2
+---0-for vendorid 1
+
+---Checking the consistency for tpep_dropoff_datetime and tpep_pickup_datetime  
+
+select count(*) as number_of_record, vendorid from new_taxi
+where tpep_pickup_datetime = tpep_dropoff_datetime;
+
+---6482 records are erroneous  in the dataset for Total_amount column
+
+---Checking the consistency for tpep_dropoff_datetime and tpep_pickup_datetime with respective vendor id
+
+select count(*) as number_of_record, vendorid from new_taxi
+where tpep_pickup_datetime = tpep_dropoff_datetime
+group by vendorid;
+
+---3063-for venderid 2
+---3419-for vendorid 1
+
+-- Following Assumption we are making before creating ORC Partitioned Table
+-- 1. We are assuming that Tpep_pickup_datetime < tpep_dropoff_datetime, will remove such rows 
+-- 2. In trip_distance column we are assuming that trip distance can not be zero or negative, so will remove such rows
+-- 3. RateCodeID column contains value 99 which is not valid as per data dictionary, we will remove such rows
+---4. In fare_amount column we are assuming that no value should have negative or zero value, we will remove such rows
+---5. In Extra Column, assuming that there should not be any negative value, we will remove such rows
+---6. In mta_tax Column, assuming that there should not be any value other than 0 or 0.5, removing such rows
+---7. In tip_amount Column, assuming that there should not be any negative value, removing such rows
+---8. In tolls_amount Column, assuming that there should not be any negative value, removing such rows
+---9. In improvement_surcharge Column, assuming that there should not be any value other than 0.30, removing such rows
+---10. In total_amount Column, assuming that there should not be any negative value, removing such rows
+
+---Dropping the table if its created beforehand
+drop table new_taxi_partitioned_orc;
+
+SET hive.exec.max.dynamic.partitions=100000;
+SET hive.exec.max.dynamic.partitions.pernode=100000;
+
+---Creating orc partitioned table 
+
+create table if not exists new_taxi_partitioned_orc(
+        vendorid int,
+        tpep_pickup_datetime timestamp,
+        tpep_dropoff_datetime timestamp,
+        passenger_count int,
+        trip_distance double,
+        ratecodeid int,
+        store_and_fwd_flag string ,
+        pulocationid int,
+        dolocationid int,
+        payment_type int,
+        fare_amount double,
+        extra double,
+        mta_tax double,     
+        tip_amount double,
+        tolls_amount double,
+        improvement_surcharge double,
+        total_amount double) partitioned by(yr int, mnth int)
+stored as orc location '/user/hive/warehouse/tabish_hive'
+tblproperties ("orc.compress"="SNAPPY");
+
+---inserting data in the prtitioned orc table keeping in mind all the quality issue and filtering them out with where clause.
+
+insert overwrite table new_taxi_partitioned_orc partition(yr, mnth)
+select vendorid,  payment_type, tpep_pickup_datetime, 
+tpep_dropoff_datetime, passenger_count,
+trip_distance, ratecodeid, store_and_fwd_flag,
+pulocationid, dolocationid,fare_amount,
+extra, mta_tax, tip_amount, tolls_amount,
+improvement_surcharge, total_amount, year(tpep_pickup_datetime) as yr,
+month(tpep_pickup_datetime) as mnth
+from new_taxi
+where passenger_count > 0 and trip_distance > 0 and
+ratecodeid != 99 and fare_amount > 0 and extra >= 0
+and mta_tax in (0, 0.5) and tip_amount >= 0
+and tolls_amount >= 0 and improvement_surcharge = 0.30 and
+total_amount > 0 and year(tpep_pickup_datetime) = 2017 and
+month(tpep_pickup_datetime) in (11,12) and unix_timestamp(tpep_pickup_datetime) < unix_timestamp(tpep_dropoff_datetime);
+
+Analysis-I
+
+1)Compare the overall average fare per trip for November and December.
+
+select round(avg(fare_amount),2)as avg_fare_amount,mnth
+from new_taxi_partitioned_orc
+group by mnth;
+
+---November-13.05
+---December-12.84
+
+2)Explore the ‘number of passengers per trip’ - how many trips are made by each level of ‘Passenger_count’? Do most people travel solo or with other people?
+
+select passenger_count, count(*) as no_of_trips from new_taxi_partitioned_orc 
+group by passenger_count order by no_of_trips desc;
+
+---1 passenger do 819798 number of trips
+---2 passenger do 175637 number of trips
+---3 passenger do 54267 number of trips
+---4 passenger do 50399 number of trips
+---5 passenger do 32999 number of trips
+---6 passenger do 24783 number of trips
+---7 passenger do 3 number of trips
+
+---so most people like to travel solo.
+
+3)Which is the most preferred mode of payment?
+
+select count(payment_type)as transaction_done,payment_type
+from new_taxi_partitioned_orc
+group by payment_type
+order by transaction_done desc;
+
+---so most prefered payment mode is through credit card.
+
+4)What is the average tip paid per trip? Compare the average tip with the 25th, 50th and 75th percentiles and comment whether the ‘average tip’ 
+is a representative statistic (of the central tendency) of ‘tip amount paid’. Hint: You may use percentile_approx(DOUBLE col, p): Returns an 
+approximate pth percentile of a numeric column (including floating point types) in the group.
+
+select round(avg(tip_amount),2) as avg_tip_per_trip,
+percentile_approx(tip_amount, 0.25) as 25th_prcntil_avgamnt,  
+percentile_approx(tip_amount, 0.50) as 50th_prcntil_avgamnt,
+percentile_approx(tip_amount, 0.75) as 75th_prcntil_avgamnt
+from new_taxi_partitioned_orc;
+
+---Average Tip per trip - 1.85
+---25th percentile of tip amomunt - 0
+---50th percentile of tip amount - 1.36
+---75th percentile of tip amount - 2.45
+
+5)Explore the ‘Extra’ (charge) variable - what fraction of total trips have an extra charge is levied?
+
+select sub.extra_charge_group, sub.count/sum(sub.count) over () from (
+select case
+when extra = 0 then 'Extra Charge not Applied'
+else 'Extra charge Applied' end as extra_charge_group,
+count(1) as count
+from new_taxi_partitioned_orc
+group by 
+case
+when extra = 0 then 'Extra Charge not Applied'
+else 'Extra charge Applied' end) sub;
+
+---Extra charge applied is 0.4634471787378032
+---Extra charge not applied 0.5365528212621968
+
+Analysis-II
+
+1)What is the correlation between the number of passengers on any given trip, and the tip paid per trip? Do multiple travellers tip more 
+compared to solo travellers? Hint: Use CORR(Col_1, Col_2)
+
+select corr(passenger_count, tip_amount) as correlation
+from new_taxi_partitioned_orc;
+
+----they are negatively correlated -0.00492550623557842,this number is negative indicating both the parameters to be negatively correlated.Hence more the passenger count less will be the tip,so solo travellers tends to pay more tip than mulyiple travellers
+
+
+
+2)Segregate the data into five segments of ‘tip paid’: [0-5), [5-10), [10-15) , [15-20) and >=20. Calculate the percentage share of each
+bucket (i.e. the fraction of trips falling in each bucket).
+
+select tip_amnt_grp, concat(round(count(*) /cast(sum(count(*)) over() as float) *100,2),'%') as prcnt_of_total from
+(
+select case
+when tip_amount < 5 then "Between 0 and 5"
+when tip_amount >= 5 and tip_amount <10 then "Between 5 and 10"
+when tip_amount >= 10 and tip_amount <15 then "Between 10 and 15"
+when tip_amount >= 15 and tip_amount <20 then "Between 15 and 20"
+else "Greater than or equal to 20" end as tip_amnt_grp 
+from new_taxi_partitioned_orc
+)sub
+group by tip_amnt_grp order by tip_amnt_grp;
+
+---Between 0 and 5 92.2%
+---Between 10 and 15 1.83%
+---Between 15 and 20 0.22%
+---Between 5 and 10 5.66%
+---Greater than or equal to 20 0.09%
+
+3)Which month has a greater average ‘speed’ - November or December? Note that the variable ‘speed’ will have to be 
+derived from other metrics. Hint: You have columns for distance and time.
+
+select mnth,
+round(avg(trip_distance * 1609.344 / (unix_timestamp(tpep_dropoff_datetime) - unix_timestamp(tpep_pickup_datetime))),2) as avg_speed
+from new_taxi_partitioned_orc
+group by mnth;
+
+---For November 4.92 m/sec
+---For December 4.96 m/sec
+
+4)Analyse the average speed of the most happening days of the year, i.e. 31st December (New year’s eve) and 25th December (Christmas) 
+and compare it with the overall average. 
+
+---Overall Speed
+select round(avg(trip_distance/(unix_timestamp(tpep_dropoff_datetime)/3600-unix_timestamp(tpep_pickup_datetime)/3600))) as avg_speed
+from new_taxi_partitioned_orc;
+---11 miles/hr
+
+---Average Speed on 31st dec
+select round(avg(trip_distance/(unix_timestamp(tpep_dropoff_datetime)/3600-unix_timestamp(tpep_pickup_datetime)/3600))) as avg_speed
+from new_taxi_partitioned_orc
+where day(tpep_pickup_datetime)=31;
+---13 miles/hr
+
+---Average Speed on 25th dec
+select round(avg(trip_distance/(unix_timestamp(tpep_dropoff_datetime)/3600-unix_timestamp(tpep_pickup_datetime)/3600))) as avg_speed
+from new_taxi_partitioned_orc
+where day(tpep_pickup_datetime)=25;
+---14 miles/hr
+
+-- Statistics shows that the Average Speed on 25th Dec and 31st Dec are quite more than the overall average speed.
